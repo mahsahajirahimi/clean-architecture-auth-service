@@ -1,0 +1,42 @@
+
+from typing import Protocol
+from uuid import UUID
+
+from auth_service.modules.identity.domain.entities.user import User
+from auth_service.modules.identity.domain.entities.group import Group
+from auth_service.modules.identity.domain.entities.membership import GroupMembership
+
+
+class UserRepository(Protocol):
+    def get_by_id(self, user_id: UUID) -> User | None:
+        ...
+
+    def get_by_username(self, username: str) -> User | None:
+        ...
+
+    def save(self, user: User) -> None:
+        ...
+
+
+class GroupRepository(Protocol):
+    def get_by_id(self, group_id: UUID) -> Group | None:
+        ...
+
+    def get_by_name(self, name: str) -> Group | None:
+        ...
+
+    def save(self, group: Group) -> None:
+        ...
+
+
+class MembershipRepository(Protocol):
+    def exists(self, user_id: UUID, group_id: UUID) -> bool:
+        ...
+
+    def save(self, membership: GroupMembership) -> None:
+        ...
+
+
+class PasswordHasher(Protocol):
+    def hash(self, password: str) -> str:
+        ...
