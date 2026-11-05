@@ -7,9 +7,9 @@ from fastapi import Depends, FastAPI
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from auth_service.composition.schema import create_schema
 from auth_service.composition.settings import Settings
 from auth_service.infrastructure.persistence.database import (
-    Base,
     make_engine,
     make_session_factory,
 )
@@ -72,8 +72,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         try:
-            # Identity repository imports register its ORM models with Base.
-            Base.metadata.create_all(engine)
+            create_schema(engine)
             yield
         finally:
             engine.dispose()

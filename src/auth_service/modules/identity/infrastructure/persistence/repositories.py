@@ -79,6 +79,10 @@ class SqlAlchemyMembershipRepository:
     def __init__(self, session: Session):
         self.session = session
 
+    def list_group_ids(self, user_id: UUID) -> frozenset[UUID]:
+        rows = self.session.scalars(select(GroupMembershipModel.group_id).where(GroupMembershipModel.user_id == str(user_id)))
+        return frozenset(UUID(group_id) for group_id in rows)
+
     def exists(self, user_id: UUID, group_id: UUID) -> bool:
         return self.session.get(
             GroupMembershipModel, (str(user_id), str(group_id))

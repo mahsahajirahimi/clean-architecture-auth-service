@@ -10,8 +10,8 @@ are implemented. One-time administrator bootstrap and protected user/group
 creation, paginated user/group reads, membership addition/removal, and user
 activation/deactivation APIs are implemented. The Access Control domain model
 and its pure authorization policy and application use cases are implemented.
-Access Control persistence, the concrete Identity adapter, and HTTP APIs are
-still planned.
+SQLAlchemy persistence and the concrete Identity adapter are also implemented.
+Access Control HTTP APIs and their authorization wiring are still planned.
 
 ## Architecture
 
@@ -193,8 +193,8 @@ checks. Existing Identity administrator checks continue to use their own policy.
 Names are case-sensitive, nonblank, already trimmed strings of at most 255
 characters. IDs must be UUIDs. Scope-name uniqueness, permission-name uniqueness
 within a scope, reference existence, and duplicate grants are checked by the
-application use cases. Persistence constraints must also enforce these rules
-when Infrastructure is implemented. Entities do not query a database or check
+application use cases. Database constraints additionally enforce catalog
+uniqueness, grant uniqueness, and references within Access Control. Entities do not query a database or check
 Identity records themselves.
 
 `AccessPolicy.effective_permissions(...)` returns an immutable set of permission
@@ -202,7 +202,8 @@ IDs for a current snapshot of an identified user's active status, group IDs,
 scopes, permissions, and grants. `allows(permission_id, ...)` checks membership
 in that effective set. The application obtains this snapshot through ports for
 current Identity membership/status data, not JWT permission claims or direct
-access to Identity tables. Concrete adapters will connect those ports later.
+access to Identity tables. The Infrastructure adapter connects this port to
+Identity application queries.
 
 The policy rules are:
 
@@ -258,10 +259,53 @@ to Presentation.
 
 Transactions remain caller-owned. The new repository ports have no `commit` or
 `rollback`. Application existence/uniqueness checks are not sufficient for
-concurrent writes: Infrastructure must add database constraints and translate
-expected persistence conflicts at the transaction boundary. These use cases are
-currently tested with `unittest.mock`; no Access Control tables, live Identity
-adapter, administrative authorization wiring, or endpoints have been added yet.
+concurrent writes: the SQLAlchemy adapters enforce constraints and surface
+IntegrityError to the caller-owned transaction boundary. Existing HTTP wiring
+rolls back such conflicts before a response is sent. Access Control endpoints
+and their application-error mapping have not been added yet.
+
+## Access Control infrastructure
+
+Four SQLAlchemy tables store the Access Control data:
+
+| Table | Constraints |
+| --- | --- |
+| `access_scopes` | UUID primary key, globally unique nonempty name of at most 255 characters |
+| `access_permissions` | UUID primary key, scope foreign key, unique `(scope_id, name)` |
+| `access_scope_grants` | Composite primary key `(subject_type, subject_id, scope_id)` and scope foreign key |
+| `access_permission_grants` | Composite primary key `(subject_type, subject_id, permission_id)` and permission foreign key |
+
+Scope and permission grants use separate tables so each target has a real foreign
+key, without nullable polymorphic target columns. Subject types are restricted to
+`user` and `group`. Deleting a scope cascades to its permissions and all related
+grants; deleting a permission removes its specific grants. Grant removal deletes
+only the exact subject/type/target combination. Repositories flush without
+committing, and database failures leave rollback to the caller's transaction.
+
+Identity owns subject records. Access Control does not declare foreign keys to
+Identity tables. Subject existence is checked through `IdentityReader` during
+assignment. If a subject is deleted outside the currently exposed APIs, its stale
+grant may remain for explicit revocation; it cannot give a missing user or a
+nonmember group access. A newly created user with the same username has a new UUID
+and does not inherit the old user's grants.
+
+`IdentityAccessQueries` is a read-only Identity Application service built from
+Identity's own repository ports. Its immutable DTO contains only a user UUID,
+active status, and current group UUIDs. `IdentityReaderAdapter` maps that DTO to
+Access Control's contract and never imports Identity ORM models or runs SQL
+against Identity tables. `composition.access_control.make_identity_reader`
+connects the adapter to the concrete Identity repositories with the request's
+session. Membership lookup is implemented inside Identity persistence.
+
+`composition.schema.create_schema` explicitly registers both modules' tables and
+is shared by server startup and both local user/bootstrap commands. It adds the
+new tables to an existing Identity database without replacing data. It is still
+schema initialization, not a migration system for changing existing columns.
+
+Integration tests use temporary SQLite databases and real adapters to verify
+round trips, unique and foreign-key constraints, rollback, cascade deletion,
+subject filtering, direct/group permission union, revocation, current membership
+and activity changes, and schema initialization over existing Identity data.
 
 ## Library choices
 

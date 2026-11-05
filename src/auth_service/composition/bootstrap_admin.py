@@ -5,8 +5,8 @@ from getpass import getpass
 
 from sqlalchemy.exc import IntegrityError
 
+from auth_service.composition.schema import create_schema
 from auth_service.infrastructure.persistence.database import (
-    Base,
     make_engine,
     make_session_factory,
 )
@@ -31,7 +31,7 @@ def main() -> None:
         os.environ.get("AUTH_DATABASE_URL", "sqlite:///auth_service.db")
     )
     try:
-        Base.metadata.create_all(engine)
+        create_schema(engine)
         sessions = make_session_factory(engine)
         # Reject repeated bootstrap before prompting for credentials.
         with sessions() as session:

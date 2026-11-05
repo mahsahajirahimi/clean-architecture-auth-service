@@ -37,6 +37,9 @@ class GroupRepository(Protocol):
 
 
 class MembershipRepository(Protocol):
+    def list_group_ids(self, user_id: UUID) -> frozenset[UUID]:
+        ...
+
     def exists(self, user_id: UUID, group_id: UUID) -> bool:
         ...
 

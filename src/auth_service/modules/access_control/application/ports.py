@@ -40,7 +40,7 @@ class GrantRepository(Protocol):
 
 
 class IdentityReader(Protocol):
-    """Current Identity data, supplied through an adapter in a later stage."""
+    """Current Identity data, supplied through a read-only application adapter."""
 
     def get_user_context(self, user_id: UUID) -> UserAccessContext | None: ...
 
