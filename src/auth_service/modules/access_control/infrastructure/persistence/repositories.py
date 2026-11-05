@@ -42,6 +42,15 @@ class SqlAlchemyScopeRepository:
             )
         ]
 
+    def list(self, limit: int, offset: int) -> list[Scope]:
+        rows = self.session.scalars(
+            select(ScopeModel)
+            .order_by(ScopeModel.name, ScopeModel.id)
+            .limit(limit)
+            .offset(offset)
+        )
+        return [self._to_domain(model) for model in rows]
+
     def save(self, scope: Scope) -> None:
         self.session.merge(ScopeModel(id=str(scope.id), name=scope.name))
         self.session.flush()
@@ -74,6 +83,18 @@ class SqlAlchemyPermissionRepository:
             )
         )
         return [self._to_domain(model) for model in models]
+
+    def list_by_scope(
+        self, scope_id: UUID, limit: int, offset: int
+    ) -> list[Permission]:
+        rows = self.session.scalars(
+            select(PermissionModel)
+            .where(PermissionModel.scope_id == str(scope_id))
+            .order_by(PermissionModel.name, PermissionModel.id)
+            .limit(limit)
+            .offset(offset)
+        )
+        return [self._to_domain(model) for model in rows]
 
     def save(self, permission: Permission) -> None:
         self.session.merge(

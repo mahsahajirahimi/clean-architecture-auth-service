@@ -2,11 +2,13 @@ from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from secrets import token_urlsafe
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, FastAPI
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from auth_service.composition.access_control import configure_access_control
 from auth_service.composition.schema import create_schema
 from auth_service.composition.settings import Settings
 from auth_service.infrastructure.persistence.database import (
@@ -164,5 +166,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             get_administrator, get_create_user, get_create_group, get_add_member
         )
     )
+
+    def get_current_user_id(user: Annotated[User, Depends(get_current_user)]) -> UUID:
+        return user.id
+
     register_error_handlers(app)
+    configure_access_control(app, get_session, get_current_user_id, get_administrator)
     return app
