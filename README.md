@@ -8,8 +8,9 @@ Identity domain entities, application ports/use cases, SQLAlchemy persistence, a
 Argon2id password hashing, JWT authentication, and the first FastAPI endpoints
 are implemented. One-time administrator bootstrap and protected user/group
 creation, paginated user/group reads, membership addition/removal, and user
-activation/deactivation APIs are implemented. The Access Control module is still
-planned.
+activation/deactivation APIs are implemented. The Access Control domain model
+and its pure authorization policy are implemented; its application use cases,
+persistence, and HTTP APIs are still planned.
 
 ## Architecture
 
@@ -156,7 +157,8 @@ Git and load it into the environment; `.env` files are not loaded automatically.
   API, not a complete OAuth2/OIDC implementation.
 - Each authenticated request reloads the user from the database. Deleted or
   inactive users are rejected even when their token has not expired. Permissions
-  and group-based authorization will be implemented in Access Control.
+  and group-based authorization will be connected through the Access Control
+  application layer in the next stage.
 - Unknown users, incorrect passwords, and inactive users receive the same `401`
   response. Unknown users still perform a dummy password verification. Malformed
   request bodies receive `422` without echoing submitted values. Successful
@@ -172,6 +174,52 @@ Git and load it into the environment; `.env` files are not loaded automatically.
 
 The app currently creates missing tables with `Base.metadata.create_all` at
 startup. Database migrations are still planned.
+
+## Access Control domain
+
+The domain is independent of Identity, FastAPI, SQLAlchemy, and JWT. It currently
+provides immutable entities and a pure authorization policy, not live HTTP access
+checks. Existing Identity administrator checks continue to use their own policy.
+
+- `Scope(id, name)` identifies a resource area, such as `orders`.
+- `Permission(id, scope_id, name)` identifies an operation in one scope, such as
+  `orders:read`. The same operation name in another scope is a different permission.
+- `Grant(subject_type, subject_id, target_type, target_id)` assigns either a
+  permission or a scope to either a user or a group. Subject and target types are
+  explicit enums; there are no special group names or wildcard strings. A grant's
+  identity is the combination of its four fields, so it needs no separate ID.
+
+Names are case-sensitive, nonblank, already trimmed strings of at most 255
+characters. IDs must be UUIDs. Scope-name uniqueness, permission-name uniqueness
+within a scope, reference existence, and persisted grant uniqueness will be
+checked by Application and database constraints in later stages. Entities do not
+query a database or check Identity records themselves.
+
+`AccessPolicy.effective_permissions(...)` returns an immutable set of permission
+IDs for a current snapshot of an identified user's active status, group IDs,
+scopes, permissions, and grants. `allows(permission_id, ...)` checks membership
+in that effective set. The future application layer must obtain this snapshot
+through ports and current Identity membership/status data, not JWT permission
+claims or direct access to Identity tables.
+
+The policy rules are:
+
+1. An inactive user always has no effective permissions. An active user with no
+   matching grants also has no permissions; there is no implicit administrator
+   bypass for business-resource permissions.
+2. Direct user grants and grants to any current group are combined. Grants for
+   other users or groups are ignored. A user UUID and group UUID are distinct
+   namespaces even if their values happen to be equal.
+3. A permission grant covers only that permission ID in its own scope. A scope
+   grant covers **all current and subsequently added permissions** in that scope.
+   Assign individual permissions when narrower access is intended.
+4. This is an additive allow model with no explicit deny. Revoking one grant
+   removes only that source of access. A direct grant, another group grant, or a
+   scope grant can still provide the permission.
+5. Each evaluation uses its supplied snapshot without caching. Membership removal
+   or grant revocation changes the next evaluation. A grant to a permission or
+   scope absent from the current catalog cannot confer access. A scope with no
+   configured permissions grants no operation until permissions are added.
 
 ## Library choices
 
