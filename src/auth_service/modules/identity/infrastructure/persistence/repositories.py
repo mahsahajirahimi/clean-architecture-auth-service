@@ -79,6 +79,14 @@ class SqlAlchemyMembershipRepository:
     def __init__(self, session: Session):
         self.session = session
 
+    def list_groups(self, user_id: UUID, limit: int, offset: int) -> list[Group]:
+        rows = self.session.scalars(select(GroupModel).join(GroupMembershipModel, GroupModel.id == GroupMembershipModel.group_id).where(GroupMembershipModel.user_id == str(user_id)).order_by(GroupModel.name, GroupModel.id).limit(limit).offset(offset))
+        return [Group(UUID(row.id), row.name) for row in rows]
+
+    def list_users(self, group_id: UUID, limit: int, offset: int) -> list[User]:
+        rows = self.session.scalars(select(UserModel).join(GroupMembershipModel, UserModel.id == GroupMembershipModel.user_id).where(GroupMembershipModel.group_id == str(group_id)).order_by(UserModel.username, UserModel.id).limit(limit).offset(offset))
+        return [User(UUID(row.id), row.username, row.password_hash, row.is_active) for row in rows]
+
     def list_group_ids(self, user_id: UUID) -> frozenset[UUID]:
         rows = self.session.scalars(select(GroupMembershipModel.group_id).where(GroupMembershipModel.user_id == str(user_id)))
         return frozenset(UUID(group_id) for group_id in rows)

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import and_, delete, or_, select
+from sqlalchemy import and_, delete, literal, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from auth_service.modules.access_control.domain.entities.grant import (
@@ -149,6 +149,41 @@ class SqlAlchemyGrantRepository:
         )
         self.session.flush()
         return result.rowcount == 1
+
+    def list_for_subject(
+        self, subject_type: SubjectType, subject_id: UUID, limit: int, offset: int
+    ) -> list[Grant]:
+        queries = []
+        for target_type, model in [
+            (GrantTargetType.SCOPE, ScopeGrantModel),
+            (GrantTargetType.PERMISSION, PermissionGrantModel),
+        ]:
+            queries.append(
+                select(
+                    literal(target_type.value).label("target_type"),
+                    model.subject_type.label("subject_type"),
+                    model.subject_id.label("subject_id"),
+                    model.target_id.label("target_id"),
+                ).where(
+                    model.subject_type == subject_type.value,
+                    model.subject_id == str(subject_id),
+                )
+            )
+        rows = self.session.execute(
+            union_all(*queries)
+            .order_by("target_type", "target_id")
+            .limit(limit)
+            .offset(offset)
+        )
+        return [
+            Grant(
+                SubjectType(row.subject_type),
+                UUID(row.subject_id),
+                GrantTargetType(row.target_type),
+                UUID(row.target_id),
+            )
+            for row in rows
+        ]
 
     def list_for_user(self, user_id: UUID, group_ids: frozenset[UUID]) -> list[Grant]:
         grants = []

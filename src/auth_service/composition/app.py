@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from auth_service.composition.access_control import configure_access_control
 from auth_service.composition.schema import create_schema
 from auth_service.composition.settings import Settings
+from auth_service.composition.web import configure_web
 from auth_service.infrastructure.persistence.database import (
     make_engine,
     make_session_factory,
@@ -26,7 +27,13 @@ from auth_service.modules.identity.application.use_cases.get_current_user import
 )
 from auth_service.modules.identity.application.use_cases.get_group import GetGroup
 from auth_service.modules.identity.application.use_cases.get_user import GetUser
+from auth_service.modules.identity.application.use_cases.list_group_members import (
+    ListGroupMembers,
+)
 from auth_service.modules.identity.application.use_cases.list_groups import ListGroups
+from auth_service.modules.identity.application.use_cases.list_user_groups import (
+    ListUserGroups,
+)
 from auth_service.modules.identity.application.use_cases.list_users import ListUsers
 from auth_service.modules.identity.application.use_cases.login import Login
 from auth_service.modules.identity.application.use_cases.remove_user_from_group import (
@@ -149,6 +156,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             SqlAlchemyMembershipRepository(session),
         )
 
+    def get_user_groups(session: SessionDependency) -> ListUserGroups:
+        return ListUserGroups(
+            SqlAlchemyUserRepository(session), SqlAlchemyMembershipRepository(session)
+        )
+
+    def get_group_members(session: SessionDependency) -> ListGroupMembers:
+        return ListGroupMembers(
+            SqlAlchemyGroupRepository(session), SqlAlchemyMembershipRepository(session)
+        )
+
     app.include_router(
         create_management_router(
             get_administrator,
@@ -158,6 +175,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             get_group_list,
             get_set_user_status,
             get_remove_member,
+            get_user_groups,
+            get_group_members,
         )
     )
     app.include_router(create_router(get_login, get_current_user))
@@ -172,4 +191,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     register_error_handlers(app)
     configure_access_control(app, get_session, get_current_user_id, get_administrator)
+    configure_web(app)
     return app

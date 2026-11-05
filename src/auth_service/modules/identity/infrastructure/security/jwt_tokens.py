@@ -71,5 +71,11 @@ class JwtTokens:
             if payload["token_use"] != "access":
                 raise ValueError("Unexpected token purpose")
             return UUID(payload["sub"])
-        except (jwt.InvalidTokenError, ValueError, TypeError, AttributeError):
+        except (
+            jwt.InvalidTokenError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            OverflowError,
+        ):
             raise InvalidTokenError("Invalid authentication token") from None

@@ -579,4 +579,4 @@ class AccessControlApiTests(unittest.TestCase):
                     if method in ("get", "post", "delete"):
                         self.assertIn("security", operation, path)
                         count += 1
-        self.assertEqual(count, 10)
+        self.assertEqual(count, 11)

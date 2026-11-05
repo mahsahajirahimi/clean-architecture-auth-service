@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, Query, Response
 
 from auth_service.modules.identity.application.use_cases.get_group import GetGroup
 from auth_service.modules.identity.application.use_cases.get_user import GetUser
+from auth_service.modules.identity.application.use_cases.list_group_members import (
+    ListGroupMembers,
+)
 from auth_service.modules.identity.application.use_cases.list_groups import ListGroups
+from auth_service.modules.identity.application.use_cases.list_user_groups import (
+    ListUserGroups,
+)
 from auth_service.modules.identity.application.use_cases.list_users import ListUsers
 from auth_service.modules.identity.application.use_cases.remove_user_from_group import (
     RemoveUserFromGroup,
@@ -30,6 +36,8 @@ def create_management_router(
     list_groups_dependency: Callable[..., ListGroups],
     set_status_dependency: Callable[..., SetUserStatus],
     remove_member_dependency: Callable[..., RemoveUserFromGroup],
+    user_groups_dependency: Callable[..., ListUserGroups],
+    group_members_dependency: Callable[..., ListGroupMembers],
 ) -> APIRouter:
     router = APIRouter(
         tags=["Identity administration"],
@@ -104,5 +112,32 @@ def create_management_router(
     ) -> Response:
         use_case.execute(user_id, group_id)
         return Response(status_code=204, headers={"Cache-Control": "no-store"})
+
+    @router.get("/users/{user_id}/groups", response_model=list[GroupResponse])
+    def user_groups(
+        user_id: UUID,
+        response: Response,
+        use_case: Annotated[ListUserGroups, Depends(user_groups_dependency)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> list[GroupResponse]:
+        groups = use_case.execute(user_id, limit, offset)
+        response.headers["Cache-Control"] = "no-store"
+        return [GroupResponse(id=g.id, name=g.name) for g in groups]
+
+    @router.get("/groups/{group_id}/members", response_model=list[UserResponse])
+    def group_members(
+        group_id: UUID,
+        response: Response,
+        use_case: Annotated[ListGroupMembers, Depends(group_members_dependency)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> list[UserResponse]:
+        users = use_case.execute(group_id, limit, offset)
+        response.headers["Cache-Control"] = "no-store"
+        return [
+            UserResponse(id=u.id, username=u.username, is_active=u.is_active)
+            for u in users
+        ]
 
     return router

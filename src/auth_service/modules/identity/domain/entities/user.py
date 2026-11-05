@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass, replace
 from uuid import UUID
 
@@ -13,9 +12,9 @@ class User:
     def __post_init__(self) -> None:
         if not isinstance(self.id, UUID):
             raise ValueError("User ID must be a UUID")
-        if not self.username or not self.username.strip():
+        if not isinstance(self.username, str) or not self.username.strip():
             raise ValueError("Username cannot be empty")
-        if not self.password_hash or not self.password_hash.strip():
+        if not isinstance(self.password_hash, str) or not self.password_hash.strip():
             raise ValueError("Password hash cannot be empty")
         if not isinstance(self.is_active, bool):
             raise ValueError("is_active must be a boolean")

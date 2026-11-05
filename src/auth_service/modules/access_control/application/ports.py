@@ -2,7 +2,7 @@ from typing import Protocol
 from uuid import UUID
 
 from auth_service.modules.access_control.application.dto import UserAccessContext
-from auth_service.modules.access_control.domain.entities.grant import Grant
+from auth_service.modules.access_control.domain.entities.grant import Grant, SubjectType
 from auth_service.modules.access_control.domain.entities.permission import Permission
 from auth_service.modules.access_control.domain.entities.scope import Scope
 
@@ -34,6 +34,10 @@ class PermissionRepository(Protocol):
 
 
 class GrantRepository(Protocol):
+    def list_for_subject(
+        self, subject_type: SubjectType, subject_id: UUID, limit: int, offset: int
+    ) -> list[Grant]: ...
+
     def exists(self, grant: Grant) -> bool: ...
 
     def save(self, grant: Grant) -> None: ...

@@ -13,15 +13,16 @@ and its pure authorization policy and application use cases are implemented.
 SQLAlchemy persistence and the concrete Identity adapter are also implemented.
 Protected Access Control HTTP APIs are implemented for catalog creation/listing,
 grant assignment/revocation, current-user access checks, and administrator
-inspection of other users. Final security/requirements review, migration decisions,
-and the university report remain.
+inspection of other users. The final requirement/security review is recorded in
+[REVIEW.md](REVIEW.md). A minimal local dashboard is included; the formal
+university report remains.
 
 ## Architecture
 
 One deployable Modular Monolith with Clean Architecture inside each module.
 Domain entities have no framework or database dependencies. Application use cases
 depend on ports; Infrastructure implements those ports. Identity owns users,
-groups, and memberships. Access Control will own scopes, permissions, and grants.
+groups, and memberships. Access Control owns scopes, permissions, and grants.
 
 Repositories flush writes but do not commit. The caller owns the transaction:
 
@@ -89,7 +90,7 @@ administrator has been deactivated. There is no automatic password reset.
 This stage supports one initial administrator. Adding more administrators,
 transferring administrator access, and recovery are not exposed by the current
 API. The bootstrap record is an Identity administration policy, separate from
-the future Access Control scopes and permissions. A group named `admin` grants
+Access Control scopes and permissions. A group named `admin` grants
 no special privileges.
 
 The earlier `python -m auth_service.composition.create_user` command remains an
@@ -111,6 +112,8 @@ With the initial administrator's token you can also call:
 | `GET /users/{user_id}` | None | `200`: user ID, username, active status |
 | `GET /groups?limit=50&offset=0` | None | `200`: array of groups |
 | `GET /groups/{group_id}` | None | `200`: group ID and name |
+| `GET /users/{user_id}/groups` | None | `200`: paginated group array for the user |
+| `GET /groups/{group_id}/members` | None | `200`: paginated user array for the group |
 | `PATCH /users/{user_id}/status` | `{"is_active": false}` or `{"is_active": true}` | `200`: updated user |
 | `DELETE /groups/{group_id}/members/{user_id}` | None | `204`: empty response |
 
@@ -327,6 +330,7 @@ grant administrator status.
 | `POST /access-control/scopes/{scope_id}/permissions` | Administrator | `{"name": "read"}` -> `201` permission |
 | `GET /access-control/scopes/{scope_id}/permissions` | Administrator | `200` permission array for that scope |
 | `POST /access-control/grants` | Administrator | Grant body below -> `201` grant |
+| `GET /access-control/grants?subject_type=user&subject_id={user_id}` | Administrator | `200`: paginated direct grant array for this subject |
 | `DELETE /access-control/grants/{subject_type}/{subject_id}/{target_type}/{target_id}` | Administrator | `204`, no body |
 | `GET /access-control/me/permissions` | Active user | `200` own user ID and sorted permission ID array |
 | `POST /access-control/me/check` | Active user | `{"permission_id": "permission-uuid"}` -> `200` decision |
@@ -346,8 +350,11 @@ Grant creation uses this shape (replace placeholder IDs with returned UUIDs):
 
 Use `subject_type: "group"` to assign to a group, or `target_type: "scope"`
 with a scope UUID to grant all current and future operations in that scope.
-The delete path uses the same four values as creation, so no separate grant ID
-is needed. A second deletion returns `404`.
+The direct grant list takes a `user` or `group` subject and includes both scope
+and permission grants. It supports the same `limit`/`offset` bounds as catalog
+lists, and can show stale assignments for cleanup. A subject with no grants
+returns `[]`. The delete path uses the same four values as creation, so no separate
+grant ID is needed. A second deletion returns `404`.
 
 Catalog lists accept `limit` (default 50, range 1-100) and `offset` (default 0,
 nonnegative). Scopes are ordered by name/ID; permissions are filtered to the
@@ -398,6 +405,26 @@ permissions: the administrator also needs grants for a positive `/me/check`.
 The API tests exercise these operations through HTTP and temporary SQLite,
 including actor isolation, current-token behavior after changes, validation,
 unique-constraint races, and rollback before successful responses.
+
+## Minimal local dashboard
+
+Open [http://127.0.0.1:8000/ui/](http://127.0.0.1:8000/ui/) after starting the
+server with the commands above. The root `/` redirects to this page. Log in with
+the existing administrator username/password; no default user is seeded or reset.
+
+The dashboard is plain HTML, CSS, and JavaScript served by the same FastAPI app.
+It has no npm installation, frontend framework, external fonts, or build step.
+Administrator forms manage users, active status, groups, memberships, catalog,
+and direct grants; the access checker can inspect a selected user. Ordinary
+users only see their own access checker and effective permission IDs. All
+administrative authorization is enforced again by the API.
+
+The token stays in page memory, never localStorage/sessionStorage. Reloading the
+page requires login again. Logout clears the browser's current data and token;
+it does not revoke the JWT on the server. Names are rendered with text nodes,
+not HTML. Forms use POST even when JavaScript is disabled, preventing accidental
+passwords in query strings. A restrictive CSP applies to `/ui/` assets while
+Swagger remains available at `/docs`.
 
 ## Library choices
 

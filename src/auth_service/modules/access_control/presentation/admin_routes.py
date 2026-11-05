@@ -19,6 +19,9 @@ from auth_service.modules.access_control.application.use_cases.create_scope impo
 from auth_service.modules.access_control.application.use_cases.get_effective_permissions import (
     GetEffectivePermissions,
 )
+from auth_service.modules.access_control.application.use_cases.list_grants import (
+    ListGrants,
+)
 from auth_service.modules.access_control.application.use_cases.list_permissions import (
     ListPermissions,
 )
@@ -55,6 +58,7 @@ def create_admin_router(
     revoke_dependency: Callable[..., RevokeGrant],
     effective_dependency: Callable[..., GetEffectivePermissions],
     check_dependency: Callable[..., CheckAccess],
+    list_grants_dependency: Callable[..., ListGrants],
 ) -> APIRouter:
     router = APIRouter(
         prefix="/access-control",
@@ -173,5 +177,26 @@ def create_admin_router(
         return CheckAccessResponse(
             user_id=user_id, permission_id=body.permission_id, allowed=allowed
         )
+
+    @router.get("/grants", response_model=list[GrantResponse])
+    def list_grants(
+        subject_type: SubjectType,
+        subject_id: UUID,
+        response: Response,
+        use_case: Annotated[ListGrants, Depends(list_grants_dependency)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> list[GrantResponse]:
+        grants = use_case.execute(subject_type, subject_id, limit, offset)
+        response.headers["Cache-Control"] = "no-store"
+        return [
+            GrantResponse(
+                subject_type=g.subject_type,
+                subject_id=g.subject_id,
+                target_type=g.target_type,
+                target_id=g.target_id,
+            )
+            for g in grants
+        ]
 
     return router

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>مدیریت هویت و دسترسی</title>
+  <link rel="stylesheet" href="/ui/style.css">
+  <script type="module" src="/ui/app.js"></script>
+</head>
+<body>
+<header><div><h1>مدیریت هویت و دسترسی</h1><p id="session-label">ورود به سامانه</p></div><button id="logout" type="button" hidden>خروج</button></header>
+<main>
+  <noscript>برای استفاده از این صفحه JavaScript را فعال کنید.</noscript>
+  <p id="notice" role="status" aria-live="polite"></p>
+  <section id="login-panel" class="card login">
+    <h2>ورود</h2>
+    <form method="post" id="login-form">
+      <label>نام کاربری<input name="username" required maxlength="255" autocomplete="username" dir="auto"></label>
+      <label>رمز عبور<input name="password" type="password" required maxlength="1024" autocomplete="current-password" dir="ltr"></label>
+      <button>ورود</button>
+    </form>
+  </section>
+  <div id="workspace" hidden>
+    <div id="admin-panel" class="grid" hidden>
+      <section class="card"><h2>کاربران</h2>
+        <form method="post" id="user-form" class="row"><label>نام کاربری<input name="username" required maxlength="255" autocomplete="off" dir="auto"></label><label>رمز عبور جدید<input name="password" type="password" required maxlength="1024" autocomplete="new-password" dir="ltr"></label><button>ساخت کاربر</button></form>
+        <div class="table-wrap"><table><thead><tr><th>نام کاربری</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="users"></tbody></table></div>
+      </section>
+      <section class="card"><h2>گروه‌ها</h2>
+        <form method="post" id="group-form" class="row"><label>نام گروه<input name="name" required maxlength="255" dir="auto"></label><button>ساخت گروه</button></form>
+        <ul id="groups" class="plain"></ul>
+      </section>
+      <section class="card"><h2>عضویت در گروه‌ها</h2>
+        <form method="post" id="membership-form" class="row"><label>کاربر<select id="membership-user" name="user_id" required></select></label><label>گروه<select id="membership-group" name="group_id" required></select></label><button>افزودن عضویت</button></form>
+        <h3>گروه‌های کاربر انتخاب‌شده</h3><ul id="memberships" class="plain"></ul>
+        <h3>اعضای گروه انتخاب‌شده</h3><ul id="group-members" class="plain"></ul>
+      </section>
+      <section class="card"><h2>Scope و Permission</h2>
+        <form method="post" id="scope-form" class="row"><label>نام Scope<input name="name" required maxlength="255" placeholder="orders" dir="auto"></label><button>ساخت Scope</button></form>
+        <form method="post" id="permission-form" class="row"><label>Scope<select id="permission-scope" name="scope_id" required></select></label><label>نام Permission<input name="name" required maxlength="255" placeholder="read" dir="auto"></label><button>ساخت Permission</button></form>
+        <ul id="scopes" class="plain"></ul>
+        <div class="table-wrap"><table><thead><tr><th>Scope</th><th>Permission</th><th>شناسه</th></tr></thead><tbody id="permissions"></tbody></table></div>
+      </section>
+      <section class="card wide"><h2>تخصیص مجوز</h2>
+        <form method="post" id="grant-form" class="row">
+          <label>گیرنده<select id="subject-type" name="subject_type"><option value="user">کاربر</option><option value="group">گروه</option></select></label>
+          <label>نام گیرنده<select id="subject-id" name="subject_id" required></select></label>
+          <label>نوع مجوز<select id="target-type" name="target_type"><option value="permission">Permission</option><option value="scope">Scope</option></select></label>
+          <label>مجوز<select id="target-id" name="target_id" required></select></label><button>تخصیص</button>
+        </form>
+        <p id="scope-warning" class="hint" hidden>تخصیص Scope شامل همهٔ Permissionهای فعلی و آیندهٔ آن است.</p>
+        <h3>مجوزهای مستقیم گیرندهٔ انتخاب‌شده</h3><ul id="grants" class="plain"></ul>
+      </section>
+    </div>
+    <section class="card access-card"><h2>بررسی دسترسی</h2>
+      <form method="post" id="check-form" class="row">
+        <label id="check-user-label" hidden>کاربر<select id="check-user" name="user_id"></select></label>
+        <label id="check-select-label" hidden>Permission<select id="check-permission-select"></select></label>
+        <label id="check-input-label">شناسهٔ Permission<input id="check-permission-id" name="permission_id" required dir="ltr" placeholder="UUID"></label><button>بررسی</button>
+      </form>
+      <p id="check-result" role="status" aria-live="polite"></p>
+      <div class="section-heading"><h3>دسترسی‌های مؤثر من</h3><button id="refresh" type="button" class="secondary">به‌روزرسانی</button></div>
+      <ul id="my-permissions" class="plain"></ul>
+    </section>
+  </div>
+</main>
+</body>
+</html>

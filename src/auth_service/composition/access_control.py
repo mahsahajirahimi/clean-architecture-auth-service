@@ -20,6 +20,9 @@ from auth_service.modules.access_control.application.use_cases.create_scope impo
 from auth_service.modules.access_control.application.use_cases.get_effective_permissions import (
     GetEffectivePermissions,
 )
+from auth_service.modules.access_control.application.use_cases.list_grants import (
+    ListGrants,
+)
 from auth_service.modules.access_control.application.use_cases.list_permissions import (
     ListPermissions,
 )
@@ -115,6 +118,9 @@ def configure_access_control(
     ) -> CheckAccess:
         return CheckAccess(effective)
 
+    def get_list_grants(session: SessionDependency) -> ListGrants:
+        return ListGrants(SqlAlchemyGrantRepository(session))
+
     app.include_router(
         create_admin_router(
             administrator_dependency,
@@ -126,6 +132,7 @@ def configure_access_control(
             get_revoke_grant,
             get_effective,
             get_check_access,
+            get_list_grants,
         )
     )
     app.include_router(

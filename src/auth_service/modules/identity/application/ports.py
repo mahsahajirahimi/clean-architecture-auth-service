@@ -37,6 +37,12 @@ class GroupRepository(Protocol):
 
 
 class MembershipRepository(Protocol):
+    def list_groups(self, user_id: UUID, limit: int, offset: int) -> list[Group]:
+        ...
+
+    def list_users(self, group_id: UUID, limit: int, offset: int) -> list[User]:
+        ...
+
     def list_group_ids(self, user_id: UUID) -> frozenset[UUID]:
         ...
 
