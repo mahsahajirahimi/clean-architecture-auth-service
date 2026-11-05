@@ -1,0 +1,79 @@
+% !TEX program = xelatex
+% Overleaf: Compiler > XeLaTeX
+\documentclass[12pt,a4paper]{article}
+\usepackage[a4paper,top=26mm,bottom=25mm,left=23mm,right=23mm,headheight=27pt]{geometry}
+\usepackage{xcolor,tikz,fancyhdr,titlesec,enumitem,setspace,hyperref,microtype}
+\usepackage{xepersian}
+\settextfont[Scale=1.16]{Amiri}
+\IfFontExistsTF{DejaVu Sans}
+  {\setlatintextfont[Scale=1.02]{DejaVu Sans}}
+  {\setlatintextfont[Scale=1.02,Path=fonts/,
+    BoldFont=DejaVuSans-Bold.ttf,ItalicFont=DejaVuSans-Oblique.ttf,
+    BoldItalicFont=DejaVuSans-BoldOblique.ttf]{DejaVuSans.ttf}}
+\setdigitfont[Scale=1.08]{Amiri}
+\definecolor{navy}{HTML}{173454}
+\definecolor{teal}{HTML}{007B85}
+\definecolor{gold}{HTML}{D7AC64}
+\definecolor{slate}{HTML}{58677B}
+\hypersetup{colorlinks=true,linkcolor=navy,urlcolor=teal,
+  pdfauthor={Mahsa Haji Rahimi},pdftitle={گزارش بخش عملی تمرین اول}}
+\setstretch{1.33}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5.2pt}
+\setlist[itemize]{itemsep=4pt,topsep=4pt,parsep=0pt,rightmargin=1.1cm,leftmargin=0.3cm}
+\setcounter{secnumdepth}{0}
+\titleformat{\section}[block]{\color{navy}\bfseries\Large}{}{0pt}{}
+\titlespacing*{\section}{0pt}{20pt}{9pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{\small\color{slate}طراحی سامانه‌های میکروسرویس}
+\fancyhead[L]{\small\color{slate}گزارش بخش عملی تمرین اول}
+\fancyfoot[C]{\small\color{slate}\thepage}
+\renewcommand{\headrulewidth}{0.35pt}
+\newcommand{\StudentName}{مهسا حاجی رحیمی}
+\newcommand{\StudentID}{۴۰۱۱۰۵۸۳۷}
+\begin{document}
+\begin{titlepage}
+\thispagestyle{empty}
+\begin{tikzpicture}[remember picture,overlay]
+\fill[navy] (current page.north west) rectangle ([yshift=-3.15cm]current page.north east);
+\fill[teal] ([yshift=-3.15cm]current page.north west) rectangle ([yshift=-3.27cm]current page.north east);
+\draw[gold,line width=1pt] ([xshift=1.9cm,yshift=-1.5cm]current page.north west) -- ([xshift=-1.9cm,yshift=-1.5cm]current page.north east);
+\end{tikzpicture}
+\vspace*{2.75cm}
+\begin{center}
+{\color{slate}\fontsize{16}{26}\selectfont دانشکده مهندسی کامپیوتر\par}
+\vspace{1.25cm}
+{\color{navy}\bfseries\fontsize{27}{42}\selectfont طراحی سامانه‌های میکروسرویس\par}
+\vspace{1.05cm}
+{\color{teal}\bfseries\fontsize{21}{32}\selectfont گزارش بخش عملی تمرین اول\par}
+\vspace{2.65cm}
+{\color{gold}\rule{0.38\textwidth}{0.7pt}\par}
+\vspace{0.8cm}
+{\color{navy}\fontsize{16}{27}\selectfont\StudentName\par}
+\vspace{0.3cm}
+{\color{slate}\fontsize{14}{24}\selectfont\StudentID\par}
+\end{center}
+\vfill
+\begin{center}
+{\color{slate}\fontsize{13}{22}\selectfont نیم‌سال پاییز ۱۴۰۵\par}
+\end{center}
+\vspace*{1.1cm}
+\end{titlepage}
+
+\section{هدف و قابلیت‌ها}
+یک سرویس مرکزی احراز هویت و کنترل دسترسی با یک \lr{Realm} پیاده‌سازی شد. سرویس، مدیریت کاربران و گروه‌ها، عضویت هم‌زمان در چند گروه، تعریف \lr{Scope} و \lr{Permission} و تخصیص یا لغو آن‌ها برای کاربر و گروه را از طریق \lr{REST API} فراهم می‌کند. از نرم‌افزار آمادهٔ \lr{Keycloak} یا \lr{Duende} استفاده نشده است.
+
+\section{معماری و طراحی}
+معماری \lr{Modular Monolith} انتخاب شد تا مرز مسئولیت‌ها بدون پیچیدگی استقرار چند سرویس حفظ شود. ماژول \lr{Identity} مسئول کاربران، گروه‌ها و ورود است؛ ماژول \lr{Access Control} مجوزها و بررسی دسترسی را مدیریت می‌کند.
+
+هر ماژول چهار لایهٔ \lr{Domain}، \lr{Application}، \lr{Infrastructure} و \lr{Presentation} دارد. دامنه مستقل از وب و دیتابیس است؛ کاربردها به قراردادها وابسته‌اند و پیاده‌سازی‌ها در \lr{Composition Root} متصل می‌شوند. کنترل دسترسی، اطلاعات عضویت را از قرارداد هویت می‌گیرد و به جدول‌های داخلی آن دسترسی مستقیم ندارد. این جداسازی، قانون وابستگی معماری پاک و اصول مسئولیت واحد و وارونگی وابستگی را رعایت می‌کند.
+
+\section{منطق دسترسی و ابزارها}
+دسترسی مؤثر، اجتماع مجوزهای مستقیم کاربر و گروه‌های فعلی اوست. تخصیص \lr{Scope} تمام مجوزهای آن محدوده را پوشش می‌دهد. لغو تخصیص یا تغییر عضویت در بررسی بعدی اثر می‌گذارد؛ اگر مجوز از مسیر دیگری باقی باشد، دسترسی حفظ می‌شود. کاربر غیرفعال دسترسی ندارد.
+
+\lr{FastAPI} برای رابط وب و مستندات، \lr{SQLAlchemy} برای ذخیره‌سازی و تراکنش‌ها و \lr{SQLite} برای اجرای ساده انتخاب شدند. رمزها با \lr{Argon2id} هش می‌شوند و ورود با توکن امضاشدهٔ \lr{JWT} انجام می‌شود. APIهای مدیریتی فقط برای ادمین مجازند و تصمیم دسترسی بر داده‌های فعلی دیتابیس متکی است.
+
+\section{آزمون و نتیجه}
+۲۲۴ آزمون شامل ۱۰۶ آزمون واحد، ۶۰ یکپارچه‌سازی و ۵۸ آزمون API با موفقیت اجرا شدند. سناریوهای ورود، عضویت، تخصیص و لغو مجوز و تغییر دسترسی بررسی شده‌اند. قابلیت‌های اصلی تمرین پیاده‌سازی شده‌اند؛ راه‌اندازی در README و مستندات API در مسیر \lr{/docs} آمده است.
+\end{document}
