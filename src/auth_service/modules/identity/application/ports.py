@@ -2,9 +2,10 @@
 from typing import Protocol
 from uuid import UUID
 
-from auth_service.modules.identity.domain.entities.user import User
+from auth_service.modules.identity.application.dto import IssuedAccessToken
 from auth_service.modules.identity.domain.entities.group import Group
 from auth_service.modules.identity.domain.entities.membership import GroupMembership
+from auth_service.modules.identity.domain.entities.user import User
 
 
 class UserRepository(Protocol):
@@ -39,4 +40,17 @@ class MembershipRepository(Protocol):
 
 class PasswordHasher(Protocol):
     def hash(self, password: str) -> str:
+        ...
+
+    def verify(self, password: str, password_hash: str) -> bool:
+        ...
+
+
+class AccessTokenIssuer(Protocol):
+    def issue(self, user_id: UUID) -> IssuedAccessToken:
+        ...
+
+
+class AccessTokenVerifier(Protocol):
+    def verify(self, access_token: str) -> UUID:
         ...

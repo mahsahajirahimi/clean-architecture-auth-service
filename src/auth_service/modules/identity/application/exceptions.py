@@ -1,4 +1,3 @@
-
 class IdentityError(Exception):
     pass
 
@@ -24,4 +23,16 @@ class GroupNotFoundError(IdentityError):
 
 
 class MembershipAlreadyExistsError(IdentityError):
+    pass
+
+
+class AuthenticationError(IdentityError):
+    pass
+
+
+class InvalidCredentialsError(AuthenticationError):
+    pass
+
+
+class InvalidTokenError(AuthenticationError):
     pass

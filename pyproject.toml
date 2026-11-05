@@ -10,7 +10,14 @@ requires-python = ">=3.11"
 dependencies = [
     "SQLAlchemy>=2.0,<3.0",
     "argon2-cffi>=25.1,<26",
+    "FastAPI>=0.121,<1",
+    "PyJWT>=2.10,<3",
+    "uvicorn>=0.34,<1",
 ]
+
+[project.optional-dependencies]
+# Support TestClient across the supported FastAPI/Starlette versions.
+test = ["httpx>=0.28,<1", "httpx2>=2.16,<3"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
