@@ -9,8 +9,9 @@ Argon2id password hashing, JWT authentication, and the first FastAPI endpoints
 are implemented. One-time administrator bootstrap and protected user/group
 creation, paginated user/group reads, membership addition/removal, and user
 activation/deactivation APIs are implemented. The Access Control domain model
-and its pure authorization policy are implemented; its application use cases,
-persistence, and HTTP APIs are still planned.
+and its pure authorization policy and application use cases are implemented.
+Access Control persistence, the concrete Identity adapter, and HTTP APIs are
+still planned.
 
 ## Architecture
 
@@ -191,16 +192,17 @@ checks. Existing Identity administrator checks continue to use their own policy.
 
 Names are case-sensitive, nonblank, already trimmed strings of at most 255
 characters. IDs must be UUIDs. Scope-name uniqueness, permission-name uniqueness
-within a scope, reference existence, and persisted grant uniqueness will be
-checked by Application and database constraints in later stages. Entities do not
-query a database or check Identity records themselves.
+within a scope, reference existence, and duplicate grants are checked by the
+application use cases. Persistence constraints must also enforce these rules
+when Infrastructure is implemented. Entities do not query a database or check
+Identity records themselves.
 
 `AccessPolicy.effective_permissions(...)` returns an immutable set of permission
 IDs for a current snapshot of an identified user's active status, group IDs,
 scopes, permissions, and grants. `allows(permission_id, ...)` checks membership
-in that effective set. The future application layer must obtain this snapshot
-through ports and current Identity membership/status data, not JWT permission
-claims or direct access to Identity tables.
+in that effective set. The application obtains this snapshot through ports for
+current Identity membership/status data, not JWT permission claims or direct
+access to Identity tables. Concrete adapters will connect those ports later.
 
 The policy rules are:
 
@@ -220,6 +222,46 @@ The policy rules are:
    or grant revocation changes the next evaluation. A grant to a permission or
    scope absent from the current catalog cannot confer access. A scope with no
    configured permissions grants no operation until permissions are added.
+
+## Access Control application
+
+The application layer uses `Protocol` ports and no FastAPI, SQLAlchemy, JWT, or
+Identity implementation imports. The current use cases are:
+
+| Use case | Behavior |
+| --- | --- |
+| `CreateScope` | Trim/validate the name, check global name uniqueness, create and save a scope |
+| `CreatePermission` | Validate the parent scope, check name uniqueness within that scope, create and save a permission |
+| `AssignGrant` | Validate the user/group and scope/permission target, reject a duplicate grant, save it |
+| `RevokeGrant` | Remove the exact composite grant; report a missing grant explicitly |
+| `GetEffectivePermissions` | Read fresh Identity context and catalog/grants, then evaluate the domain policy |
+| `CheckAccess` | Return whether the requested permission ID is in the user's effective set |
+
+`ScopeRepository`, `PermissionRepository`, and `GrantRepository` own the Access
+Control data contracts. `IdentityReader` supplies an immutable `UserAccessContext`
+(user ID, active flag, current group IDs) and group-existence checks. No password
+hashes or Identity entities cross this boundary. The reader's returned user ID
+must match the requested user; a mismatch raises `IdentityContextError` rather
+than using another user's status or groups.
+
+Assignments to existing inactive users are allowed, but checks for inactive users
+return no permissions without querying grants or the catalog. Unknown users raise
+`UserNotFoundError`; unknown permission IDs are denied. The context, grants, and
+catalog are read again on each evaluation. Lookup or persistence errors propagate;
+there is no fallback to cached authorization or successful access.
+
+Revocation intentionally requires only the grant key and repository. It can clean
+up stale grants even after the corresponding user/group or scope/permission is
+gone. A second revocation raises `GrantNotFoundError`. Grant keys use explicit
+`SubjectType` and `GrantTargetType` enum values; HTTP string parsing will belong
+to Presentation.
+
+Transactions remain caller-owned. The new repository ports have no `commit` or
+`rollback`. Application existence/uniqueness checks are not sufficient for
+concurrent writes: Infrastructure must add database constraints and translate
+expected persistence conflicts at the transaction boundary. These use cases are
+currently tested with `unittest.mock`; no Access Control tables, live Identity
+adapter, administrative authorization wiring, or endpoints have been added yet.
 
 ## Library choices
 
