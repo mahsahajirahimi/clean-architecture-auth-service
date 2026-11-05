@@ -1,13 +1,13 @@
 
 from uuid import uuid4
 
-from auth_service.modules.identity.application.ports import (
-    UserRepository,
-    PasswordHasher,
-)
 from auth_service.modules.identity.application.exceptions import (
     DuplicateUsernameError,
     InvalidInputError,
+)
+from auth_service.modules.identity.application.ports import (
+    PasswordHasher,
+    UserRepository,
 )
 from auth_service.modules.identity.domain.entities.user import User
 
@@ -29,6 +29,10 @@ class CreateUser:
             raise InvalidInputError("Password cannot be empty")
 
         username = username.strip()
+        if len(username) > 255:
+            raise InvalidInputError("Username must not exceed 255 characters")
+        if len(password) > 1024:
+            raise InvalidInputError("Password must not exceed 1024 characters")
 
         if self.users.get_by_username(username) is not None:
             raise DuplicateUsernameError("Username already exists")

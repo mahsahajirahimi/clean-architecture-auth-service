@@ -2,7 +2,17 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from auth_service.modules.identity.application.exceptions import AuthenticationError
+from auth_service.modules.identity.application.exceptions import (
+    AdministratorRequiredError,
+    AuthenticationError,
+    DataConflictError,
+    DuplicateGroupError,
+    DuplicateUsernameError,
+    GroupNotFoundError,
+    InvalidInputError,
+    MembershipAlreadyExistsError,
+    UserNotFoundError,
+)
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -23,3 +33,24 @@ def register_error_handlers(app: FastAPI) -> None:
             for item in error.errors()
         ]
         return JSONResponse(status_code=422, content={"detail": details})
+
+    statuses = {
+        AdministratorRequiredError: 403,
+        InvalidInputError: 400,
+        DuplicateUsernameError: 409,
+        DuplicateGroupError: 409,
+        MembershipAlreadyExistsError: 409,
+        DataConflictError: 409,
+        UserNotFoundError: 404,
+        GroupNotFoundError: 404,
+    }
+
+    async def identity_error(request: Request, error: Exception):
+        return JSONResponse(
+            status_code=statuses[type(error)],
+            content={"detail": str(error)},
+            headers={"Cache-Control": "no-store"},
+        )
+
+    for exception_class in statuses:
+        app.add_exception_handler(exception_class, identity_error)

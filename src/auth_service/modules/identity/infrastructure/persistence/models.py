@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from auth_service.infrastructure.persistence.database import Base
@@ -30,4 +30,16 @@ class GroupMembershipModel(Base):
     group_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("identity_groups.id", ondelete="CASCADE"),
         primary_key=True,
+    )
+
+
+class AdministratorModel(Base):
+    __tablename__ = "identity_administrator"
+    __table_args__ = (CheckConstraint("id = 1", name="ck_identity_administrator_singleton"),)
+
+    # The only possible primary key is 1, so concurrent bootstraps cannot both win.
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("identity_users.id", ondelete="RESTRICT"),
+        unique=True, nullable=False,
     )

@@ -6,8 +6,9 @@ University assignment: a simplified, single-realm identity and authorization ser
 
 Identity domain entities, application ports/use cases, SQLAlchemy persistence, and
 Argon2id password hashing, JWT authentication, and the first FastAPI endpoints
-are implemented. Administrator bootstrap, administrative APIs, and the Access
-Control module are still planned.
+are implemented. One-time administrator bootstrap and protected user/group
+creation and group-membership APIs are also implemented. Access Control and the
+remaining user/group management operations are still planned.
 
 ## Architecture
 
@@ -27,8 +28,10 @@ with SessionLocal.begin() as session:
 Exiting normally commits; an exception rolls back the operation. Database
 constraints enforce unique usernames/group names, unique memberships, and valid
 membership references. Deleting a user or group cascades to its memberships.
-Constraint failures currently surface as SQLAlchemy IntegrityError; a future HTTP
-boundary must translate expected conflicts after rollback without exposing SQL.
+Repositories surface database constraint failures as SQLAlchemy IntegrityError.
+The HTTP composition boundary rolls back the request transaction and translates
+these to a generic `409` without exposing SQL or parameters. The initial
+administrator cannot be deleted while referenced by the bootstrap record.
 
 ## Setup and tests
 
@@ -60,20 +63,51 @@ out of Git:
 
 ```sh
 export AUTH_JWT_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-python -m auth_service.composition.create_user
+# First setup only: create the initial administrator with a new username.
+python -m auth_service.composition.bootstrap_admin
 python -m uvicorn auth_service.composition.app:create_app --factory --reload
 ```
 
-The local command prompts for a username and password without displaying the
-password, and creates an ordinary active user. It requires local database access
-and does not grant administrator privileges. It is a development/operator tool,
-not the future administrator bootstrap. Reusing a username fails without changing
-the existing user. Nothing is seeded automatically at server startup.
+The bootstrap command prompts for an administrator username and password without
+displaying the password. It requires local database access and is not exposed
+through HTTP. It creates a new user; an existing user with the same name is never
+promoted or overwritten. Run bootstrap once per database, not on every start.
+Nothing is seeded automatically at server startup.
+
+Bootstrap creates the user and the singleton `identity_administrator` record in
+one transaction. The database restricts the record to primary key `1`; concurrent
+bootstrap attempts can commit only one initial administrator. A losing attempt
+rolls back its newly created user. Repeat bootstrap is refused even if the
+administrator has been deactivated. There is no automatic password reset.
+
+This stage supports one initial administrator. Adding more administrators,
+transferring administrator access, and recovery are not exposed by the current
+API. The bootstrap record is an Identity administration policy, separate from
+the future Access Control scopes and permissions. A group named `admin` grants
+no special privileges.
+
+The earlier `python -m auth_service.composition.create_user` command remains an
+optional local tool for ordinary development users and never grants admin access.
 
 Open http://127.0.0.1:8000/docs for interactive API documentation. Call
 `POST /auth/login` with JSON `{"username": "your-user", "password": "your-password"}`.
 Copy the returned access token into the Swagger **Authorize** dialog, then call
 `GET /auth/me`. Passwords preserve whitespace; usernames are trimmed.
+
+With the initial administrator's token you can also call:
+
+| Endpoint | JSON body | Result |
+| --- | --- | --- |
+| `POST /users` | `{"username": "ali", "password": "choose-a-password"}` | `201`: user ID, username, active status |
+| `POST /groups` | `{"name": "staff"}` | `201`: group ID and name |
+| `POST /groups/{group_id}/members` | `{"user_id": "user-uuid"}` | `201`: user ID and group ID |
+
+All three endpoints require an active administrator: `401` for missing/invalid
+credentials or an inactive user, `403` for an authenticated ordinary user.
+Missing users/groups return `404`; duplicate usernames, group names, or
+memberships return `409`. Schema errors return `422`; blank strings that reach
+the application are rejected with `400`. A request containing an unsupported
+field such as `is_admin` is rejected. No password hashes appear in responses.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -105,9 +139,12 @@ Git and load it into the environment; `.env` files are not loaded automatically.
   request bodies receive `422` without echoing submitted values. Successful
   responses expose only the explicit response schemas.
 - Usernames at login are limited to 255 characters and passwords to 1024.
-  There is no public user registration or administrative HTTP endpoint yet.
-- Refresh tokens, logout/revocation, login throttling, administrator bootstrap,
-  and access-control APIs are not implemented in this stage. Use HTTPS when
+  User and group names are limited to 255 characters in creation use cases.
+  User creation through HTTP requires administrator access; there is no public registration.
+- Administrator access is read from the database on every administrative request;
+  it is not inferred from a username, group name, or JWT role claim.
+- Refresh tokens, logout/revocation, login throttling, and access-control APIs
+  are not implemented in this stage. Use HTTPS when
   deploying beyond local development.
 
 The app currently creates missing tables with `Base.metadata.create_all` at

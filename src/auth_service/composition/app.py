@@ -4,6 +4,7 @@ from secrets import token_urlsafe
 from typing import Annotated
 
 from fastapi import Depends, FastAPI
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from auth_service.composition.settings import Settings
@@ -12,18 +13,31 @@ from auth_service.infrastructure.persistence.database import (
     make_engine,
     make_session_factory,
 )
+from auth_service.modules.identity.application.exceptions import DataConflictError
+from auth_service.modules.identity.application.use_cases.add_user_to_group import (
+    AddUserToGroup,
+)
+from auth_service.modules.identity.application.use_cases.create_group import CreateGroup
+from auth_service.modules.identity.application.use_cases.create_user import CreateUser
 from auth_service.modules.identity.application.use_cases.get_current_user import (
     GetCurrentUser,
 )
 from auth_service.modules.identity.application.use_cases.login import Login
+from auth_service.modules.identity.application.use_cases.require_administrator import (
+    RequireAdministrator,
+)
 from auth_service.modules.identity.domain.entities.user import User
 from auth_service.modules.identity.infrastructure.persistence.repositories import (
+    SqlAlchemyAdministratorRepository,
+    SqlAlchemyGroupRepository,
+    SqlAlchemyMembershipRepository,
     SqlAlchemyUserRepository,
 )
 from auth_service.modules.identity.infrastructure.security.argon2_password_hasher import (
     Argon2PasswordHasher,
 )
 from auth_service.modules.identity.infrastructure.security.jwt_tokens import JwtTokens
+from auth_service.modules.identity.presentation.admin_routes import create_admin_router
 from auth_service.modules.identity.presentation.errors import register_error_handlers
 from auth_service.modules.identity.presentation.routes import create_router
 from auth_service.modules.identity.presentation.security import get_bearer_token
@@ -54,8 +68,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Authentication Service", version="0.1.0", lifespan=lifespan)
 
     def get_session() -> Iterator[Session]:
-        with sessions.begin() as session:
-            yield session
+        try:
+            with sessions.begin() as session:
+                yield session
+        except IntegrityError:
+            # Translate persistence conflicts only after the context rolled back.
+            raise DataConflictError("Operation conflicts with existing data") from None
 
     # End the transaction before a successful HTTP response is sent.
     SessionDependency = Annotated[Session, Depends(get_session, scope="function")]
@@ -71,6 +89,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> User:
         return GetCurrentUser(SqlAlchemyUserRepository(session), tokens).execute(token)
 
+    def get_administrator(
+        user: Annotated[User, Depends(get_current_user)],
+        session: SessionDependency,
+    ) -> User:
+        return RequireAdministrator(SqlAlchemyAdministratorRepository(session)).execute(
+            user
+        )
+
+    def get_create_user(session: SessionDependency) -> CreateUser:
+        return CreateUser(SqlAlchemyUserRepository(session), passwords)
+
+    def get_create_group(session: SessionDependency) -> CreateGroup:
+        return CreateGroup(SqlAlchemyGroupRepository(session))
+
+    def get_add_member(session: SessionDependency) -> AddUserToGroup:
+        return AddUserToGroup(
+            SqlAlchemyUserRepository(session),
+            SqlAlchemyGroupRepository(session),
+            SqlAlchemyMembershipRepository(session),
+        )
+
     app.include_router(create_router(get_login, get_current_user))
+    app.include_router(
+        create_admin_router(
+            get_administrator, get_create_user, get_create_group, get_add_member
+        )
+    )
     register_error_handlers(app)
     return app

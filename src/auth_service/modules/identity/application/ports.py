@@ -54,3 +54,11 @@ class AccessTokenIssuer(Protocol):
 class AccessTokenVerifier(Protocol):
     def verify(self, access_token: str) -> UUID:
         ...
+
+
+class AdministratorRepository(Protocol):
+    def get_user_id(self) -> UUID | None:
+        ...
+
+    def initialize(self, user_id: UUID) -> None:
+        ...

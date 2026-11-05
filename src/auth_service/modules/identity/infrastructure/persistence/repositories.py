@@ -3,11 +3,14 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from auth_service.modules.identity.domain.entities.user import User
 from auth_service.modules.identity.domain.entities.group import Group
 from auth_service.modules.identity.domain.entities.membership import GroupMembership
+from auth_service.modules.identity.domain.entities.user import User
 from auth_service.modules.identity.infrastructure.persistence.models import (
-    UserModel, GroupModel, GroupMembershipModel,
+    AdministratorModel,
+    GroupMembershipModel,
+    GroupModel,
+    UserModel,
 )
 
 
@@ -73,4 +76,17 @@ class SqlAlchemyMembershipRepository:
         self.session.add(GroupMembershipModel(
             user_id=str(membership.user_id), group_id=str(membership.group_id),
         ))
+        self.session.flush()
+
+
+class SqlAlchemyAdministratorRepository:
+    def __init__(self, session: Session):
+        self.session = session
+
+    def get_user_id(self) -> UUID | None:
+        model = self.session.get(AdministratorModel, 1)
+        return UUID(model.user_id) if model is not None else None
+
+    def initialize(self, user_id: UUID) -> None:
+        self.session.add(AdministratorModel(id=1, user_id=str(user_id)))
         self.session.flush()

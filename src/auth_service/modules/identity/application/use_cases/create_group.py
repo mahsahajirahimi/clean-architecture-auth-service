@@ -1,11 +1,11 @@
 
 from uuid import uuid4
 
-from auth_service.modules.identity.application.ports import GroupRepository
 from auth_service.modules.identity.application.exceptions import (
     DuplicateGroupError,
     InvalidInputError,
 )
+from auth_service.modules.identity.application.ports import GroupRepository
 from auth_service.modules.identity.domain.entities.group import Group
 
 
@@ -18,6 +18,8 @@ class CreateGroup:
             raise InvalidInputError("Group name cannot be empty")
 
         name = name.strip()
+        if len(name) > 255:
+            raise InvalidInputError("Group name must not exceed 255 characters")
 
         if self.groups.get_by_name(name) is not None:
             raise DuplicateGroupError("Group already exists")

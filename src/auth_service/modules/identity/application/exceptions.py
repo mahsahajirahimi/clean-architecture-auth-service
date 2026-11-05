@@ -36,3 +36,15 @@ class InvalidCredentialsError(AuthenticationError):
 
 class InvalidTokenError(AuthenticationError):
     pass
+
+
+class AdministratorRequiredError(IdentityError):
+    pass
+
+
+class BootstrapAlreadyCompletedError(IdentityError):
+    pass
+
+
+class DataConflictError(IdentityError):
+    pass
