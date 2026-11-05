@@ -22,9 +22,19 @@ from auth_service.modules.identity.application.use_cases.create_user import Crea
 from auth_service.modules.identity.application.use_cases.get_current_user import (
     GetCurrentUser,
 )
+from auth_service.modules.identity.application.use_cases.get_group import GetGroup
+from auth_service.modules.identity.application.use_cases.get_user import GetUser
+from auth_service.modules.identity.application.use_cases.list_groups import ListGroups
+from auth_service.modules.identity.application.use_cases.list_users import ListUsers
 from auth_service.modules.identity.application.use_cases.login import Login
+from auth_service.modules.identity.application.use_cases.remove_user_from_group import (
+    RemoveUserFromGroup,
+)
 from auth_service.modules.identity.application.use_cases.require_administrator import (
     RequireAdministrator,
+)
+from auth_service.modules.identity.application.use_cases.set_user_status import (
+    SetUserStatus,
 )
 from auth_service.modules.identity.domain.entities.user import User
 from auth_service.modules.identity.infrastructure.persistence.repositories import (
@@ -39,6 +49,9 @@ from auth_service.modules.identity.infrastructure.security.argon2_password_hashe
 from auth_service.modules.identity.infrastructure.security.jwt_tokens import JwtTokens
 from auth_service.modules.identity.presentation.admin_routes import create_admin_router
 from auth_service.modules.identity.presentation.errors import register_error_handlers
+from auth_service.modules.identity.presentation.management_routes import (
+    create_management_router,
+)
 from auth_service.modules.identity.presentation.routes import create_router
 from auth_service.modules.identity.presentation.security import get_bearer_token
 
@@ -110,6 +123,42 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             SqlAlchemyMembershipRepository(session),
         )
 
+    def get_user_reader(session: SessionDependency) -> GetUser:
+        return GetUser(SqlAlchemyUserRepository(session))
+
+    def get_user_list(session: SessionDependency) -> ListUsers:
+        return ListUsers(SqlAlchemyUserRepository(session))
+
+    def get_group_reader(session: SessionDependency) -> GetGroup:
+        return GetGroup(SqlAlchemyGroupRepository(session))
+
+    def get_group_list(session: SessionDependency) -> ListGroups:
+        return ListGroups(SqlAlchemyGroupRepository(session))
+
+    def get_set_user_status(session: SessionDependency) -> SetUserStatus:
+        return SetUserStatus(
+            SqlAlchemyUserRepository(session),
+            SqlAlchemyAdministratorRepository(session),
+        )
+
+    def get_remove_member(session: SessionDependency) -> RemoveUserFromGroup:
+        return RemoveUserFromGroup(
+            SqlAlchemyUserRepository(session),
+            SqlAlchemyGroupRepository(session),
+            SqlAlchemyMembershipRepository(session),
+        )
+
+    app.include_router(
+        create_management_router(
+            get_administrator,
+            get_user_reader,
+            get_user_list,
+            get_group_reader,
+            get_group_list,
+            get_set_user_status,
+            get_remove_member,
+        )
+    )
     app.include_router(create_router(get_login, get_current_user))
     app.include_router(
         create_admin_router(

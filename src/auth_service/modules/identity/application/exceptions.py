@@ -48,3 +48,11 @@ class BootstrapAlreadyCompletedError(IdentityError):
 
 class DataConflictError(IdentityError):
     pass
+
+
+class MembershipNotFoundError(IdentityError):
+    pass
+
+
+class ProtectedAdministratorError(IdentityError):
+    pass

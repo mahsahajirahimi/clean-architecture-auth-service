@@ -15,6 +15,9 @@ class UserRepository(Protocol):
     def get_by_username(self, username: str) -> User | None:
         ...
 
+    def list(self, limit: int, offset: int) -> list[User]:
+        ...
+
     def save(self, user: User) -> None:
         ...
 
@@ -26,12 +29,18 @@ class GroupRepository(Protocol):
     def get_by_name(self, name: str) -> Group | None:
         ...
 
+    def list(self, limit: int, offset: int) -> list[Group]:
+        ...
+
     def save(self, group: Group) -> None:
         ...
 
 
 class MembershipRepository(Protocol):
     def exists(self, user_id: UUID, group_id: UUID) -> bool:
+        ...
+
+    def remove(self, user_id: UUID, group_id: UUID) -> bool:
         ...
 
     def save(self, membership: GroupMembership) -> None:

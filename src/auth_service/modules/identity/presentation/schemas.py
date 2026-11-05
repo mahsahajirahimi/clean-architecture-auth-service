@@ -50,3 +50,9 @@ class GroupResponse(BaseModel):
 class MembershipResponse(BaseModel):
     user_id: UUID
     group_id: UUID
+
+
+class SetUserStatusRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    is_active: bool

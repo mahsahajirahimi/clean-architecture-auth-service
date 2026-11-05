@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from auth_service.modules.identity.domain.entities.group import Group
@@ -32,6 +32,12 @@ class SqlAlchemyUserRepository:
             select(UserModel).where(UserModel.username == username)
         ))
 
+    def list(self, limit: int, offset: int) -> list[User]:
+        models = self.session.scalars(
+            select(UserModel).order_by(UserModel.username, UserModel.id).limit(limit).offset(offset)
+        )
+        return [self._to_domain(model) for model in models]
+
     def save(self, user: User) -> None:
         self.session.merge(UserModel(
             id=str(user.id), username=user.username,
@@ -58,6 +64,12 @@ class SqlAlchemyGroupRepository:
             select(GroupModel).where(GroupModel.name == name)
         ))
 
+    def list(self, limit: int, offset: int) -> list[Group]:
+        models = self.session.scalars(
+            select(GroupModel).order_by(GroupModel.name, GroupModel.id).limit(limit).offset(offset)
+        )
+        return [self._to_domain(model) for model in models]
+
     def save(self, group: Group) -> None:
         self.session.merge(GroupModel(id=str(group.id), name=group.name))
         self.session.flush()
@@ -71,6 +83,16 @@ class SqlAlchemyMembershipRepository:
         return self.session.get(
             GroupMembershipModel, (str(user_id), str(group_id))
         ) is not None
+
+    def remove(self, user_id: UUID, group_id: UUID) -> bool:
+        result = self.session.execute(
+            delete(GroupMembershipModel).where(
+                GroupMembershipModel.user_id == str(user_id),
+                GroupMembershipModel.group_id == str(group_id),
+            )
+        )
+        self.session.flush()
+        return result.rowcount == 1
 
     def save(self, membership: GroupMembership) -> None:
         self.session.add(GroupMembershipModel(

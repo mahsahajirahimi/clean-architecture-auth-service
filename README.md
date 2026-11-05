@@ -7,8 +7,9 @@ University assignment: a simplified, single-realm identity and authorization ser
 Identity domain entities, application ports/use cases, SQLAlchemy persistence, and
 Argon2id password hashing, JWT authentication, and the first FastAPI endpoints
 are implemented. One-time administrator bootstrap and protected user/group
-creation and group-membership APIs are also implemented. Access Control and the
-remaining user/group management operations are still planned.
+creation, paginated user/group reads, membership addition/removal, and user
+activation/deactivation APIs are implemented. The Access Control module is still
+planned.
 
 ## Architecture
 
@@ -101,13 +102,35 @@ With the initial administrator's token you can also call:
 | `POST /users` | `{"username": "ali", "password": "choose-a-password"}` | `201`: user ID, username, active status |
 | `POST /groups` | `{"name": "staff"}` | `201`: group ID and name |
 | `POST /groups/{group_id}/members` | `{"user_id": "user-uuid"}` | `201`: user ID and group ID |
+| `GET /users?limit=50&offset=0` | None | `200`: array of users |
+| `GET /users/{user_id}` | None | `200`: user ID, username, active status |
+| `GET /groups?limit=50&offset=0` | None | `200`: array of groups |
+| `GET /groups/{group_id}` | None | `200`: group ID and name |
+| `PATCH /users/{user_id}/status` | `{"is_active": false}` or `{"is_active": true}` | `200`: updated user |
+| `DELETE /groups/{group_id}/members/{user_id}` | None | `204`: empty response |
 
-All three endpoints require an active administrator: `401` for missing/invalid
+All management endpoints above require an active administrator: `401` for missing/invalid
 credentials or an inactive user, `403` for an authenticated ordinary user.
 Missing users/groups return `404`; duplicate usernames, group names, or
 memberships return `409`. Schema errors return `422`; blank strings that reach
 the application are rejected with `400`. A request containing an unsupported
 field such as `is_admin` is rejected. No password hashes appear in responses.
+
+User/group list endpoints default to `limit=50` and `offset=0`, with limits from
+1 to 100 and nonnegative offsets. Results are ordered by username/group name,
+then ID. User lists include inactive users; an empty page returns `[]`.
+
+Membership removal deletes only the selected membership. It preserves the user,
+the group, and memberships in other groups. Missing users, groups, or membership
+return `404`, including a second deletion of the same membership. The user may be
+added to that group again later.
+
+Status requests accept only a JSON boolean. Repeating the current status is a
+successful no-op. Deactivating the initial administrator returns `409` to avoid
+locking out the only administrator. Disabling ordinary users blocks both login
+and authenticated requests immediately on subsequent requests. Reactivation
+allows login and restores use of existing unexpired tokens; persistent token
+revocation is not implemented in this stage.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |

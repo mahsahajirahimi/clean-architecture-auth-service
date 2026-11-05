@@ -11,6 +11,8 @@ from auth_service.modules.identity.application.exceptions import (
     GroupNotFoundError,
     InvalidInputError,
     MembershipAlreadyExistsError,
+    MembershipNotFoundError,
+    ProtectedAdministratorError,
     UserNotFoundError,
 )
 
@@ -43,6 +45,8 @@ def register_error_handlers(app: FastAPI) -> None:
         DataConflictError: 409,
         UserNotFoundError: 404,
         GroupNotFoundError: 404,
+        MembershipNotFoundError: 404,
+        ProtectedAdministratorError: 409,
     }
 
     async def identity_error(request: Request, error: Exception):
